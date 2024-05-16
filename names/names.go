@@ -63,6 +63,7 @@ const (
 	EventsEndpointID                     = "events"
 	EvidentlyEndpointID                  = "evidently"
 	FMSEndpointID                        = "fms"
+	GuardDutyEndpointID                  = "guardduty"
 	IdentityStoreEndpointID              = "identitystore"
 	Inspector2EndpointID                 = "inspector2"
 	IVSChatEndpointID                    = "ivschat"
