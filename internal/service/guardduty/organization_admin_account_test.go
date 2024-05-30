@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/service/guardduty"
-	"github.com/hashicorp/aws-sdk-go-base/v2/awsv1shim/v2/tfawserr"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
+	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-provider-aws/internal/acctest"
@@ -50,7 +51,7 @@ func testAccOrganizationAdminAccount_basic(t *testing.T) {
 
 func testAccCheckOrganizationAdminAccountDestroy(ctx context.Context) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		conn := acctest.Provider.Meta().(*conns.AWSClient).GuardDutyConn(ctx)
+		conn := acctest.Provider.Meta().(*conns.AWSClient).GuardDutyClient(ctx)
 
 		for _, rs := range s.RootModule().Resources {
 			if rs.Type != "aws_guardduty_organization_admin_account" {
@@ -59,7 +60,7 @@ func testAccCheckOrganizationAdminAccountDestroy(ctx context.Context) resource.T
 
 			adminAccount, err := tfguardduty.GetOrganizationAdminAccount(ctx, conn, rs.Primary.ID)
 
-			if tfawserr.ErrMessageContains(err, guardduty.ErrCodeBadRequestException, "organization is not in use") {
+			if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "organization is not in use") {
 				continue
 			}
 
@@ -85,7 +86,7 @@ func testAccCheckOrganizationAdminAccountExists(ctx context.Context, resourceNam
 			return fmt.Errorf("Not found: %s", resourceName)
 		}
 
-		conn := acctest.Provider.Meta().(*conns.AWSClient).GuardDutyConn(ctx)
+		conn := acctest.Provider.Meta().(*conns.AWSClient).GuardDutyClient(ctx)
 
 		adminAccount, err := tfguardduty.GetOrganizationAdminAccount(ctx, conn, rs.Primary.ID)
 

@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/guardduty"
-	"github.com/hashicorp/aws-sdk-go-base/v2/awsv1shim/v2/tfawserr"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
+	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-provider-aws/internal/sweep"
@@ -37,19 +38,19 @@ func sweepDetectors(region string) error {
 		return fmt.Errorf("error getting client: %w", err)
 	}
 
-	conn := client.GuardDutyConn(ctx)
+	conn := client.GuardDutyClient(ctx)
 	input := &guardduty.ListDetectorsInput{}
 	var sweeperErrs *multierror.Error
 
 	err = conn.ListDetectorsPagesWithContext(ctx, input, func(page *guardduty.ListDetectorsOutput, lastPage bool) bool {
 		for _, detectorID := range page.DetectorIds {
-			id := aws.StringValue(detectorID)
+			id := aws.ToString(detectorID)
 			input := &guardduty.DeleteDetectorInput{
 				DetectorId: detectorID,
 			}
 
 			log.Printf("[INFO] Deleting GuardDuty Detector: %s", id)
-			_, err := conn.DeleteDetectorWithContext(ctx, input)
+			_, err := conn.DeleteDetector(ctx, input)
 			if tfawserr.ErrCodeContains(err, "AccessDenied") {
 				log.Printf("[WARN] Skipping GuardDuty Detector (%s): %s", id, err)
 				continue
@@ -84,7 +85,7 @@ func sweepPublishingDestinations(region string) error {
 		return fmt.Errorf("error getting client: %s", err)
 	}
 
-	conn := client.GuardDutyConn(ctx)
+	conn := client.GuardDutyClient(ctx)
 	var sweeperErrs *multierror.Error
 
 	detect_input := &guardduty.ListDetectorsInput{}
@@ -103,7 +104,7 @@ func sweepPublishingDestinations(region string) error {
 					}
 
 					log.Printf("[INFO] Deleting GuardDuty Publishing Destination: %s", *destination_element.DestinationId)
-					_, err := conn.DeletePublishingDestinationWithContext(ctx, input)
+					_, err := conn.DeletePublishingDestination(ctx, input)
 
 					if err != nil {
 						sweeperErr := fmt.Errorf("error deleting GuardDuty Publishing Destination (%s): %w", *destination_element.DestinationId, err)

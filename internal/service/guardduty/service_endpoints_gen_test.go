@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	guardduty_sdkv1 "github.com/aws/aws-sdk-go-v2/service/guardduty"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
-	guardduty_sdkv1 "github.com/aws/aws-sdk-go/service/guardduty"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/google/go-cmp/cmp"
@@ -232,7 +232,7 @@ func defaultEndpoint(region string) string {
 func callService(ctx context.Context, t *testing.T, meta *conns.AWSClient) string {
 	t.Helper()
 
-	client := meta.GuardDutyConn(ctx)
+	client := meta.GuardDutyClient(ctx)
 
 	req, _ := client.ListDetectorsRequest(&guardduty_sdkv1.ListDetectorsInput{})
 

@@ -5,9 +5,9 @@ package guardduty
 import (
 	"context"
 
+	guardduty_sdkv1 "github.com/aws/aws-sdk-go-v2/service/guardduty"
 	aws_sdkv1 "github.com/aws/aws-sdk-go/aws"
 	session_sdkv1 "github.com/aws/aws-sdk-go/aws/session"
-	guardduty_sdkv1 "github.com/aws/aws-sdk-go/service/guardduty"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
 	"github.com/hashicorp/terraform-provider-aws/internal/types"
 	"github.com/hashicorp/terraform-provider-aws/names"

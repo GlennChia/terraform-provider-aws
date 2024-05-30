@@ -7,8 +7,9 @@ import (
 	"context"
 	"log"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/guardduty"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
@@ -40,7 +41,7 @@ func ResourceOrganizationAdminAccount() *schema.Resource {
 
 func resourceOrganizationAdminAccountCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
-	conn := meta.(*conns.AWSClient).GuardDutyConn(ctx)
+	conn := meta.(*conns.AWSClient).GuardDutyClient(ctx)
 
 	adminAccountID := d.Get("admin_account_id").(string)
 
@@ -48,7 +49,7 @@ func resourceOrganizationAdminAccountCreate(ctx context.Context, d *schema.Resou
 		AdminAccountId: aws.String(adminAccountID),
 	}
 
-	_, err := conn.EnableOrganizationAdminAccountWithContext(ctx, input)
+	_, err := conn.EnableOrganizationAdminAccount(ctx, input)
 
 	if err != nil {
 		return sdkdiag.AppendErrorf(diags, "enabling GuardDuty Organization Admin Account (%s): %s", adminAccountID, err)
@@ -65,7 +66,7 @@ func resourceOrganizationAdminAccountCreate(ctx context.Context, d *schema.Resou
 
 func resourceOrganizationAdminAccountRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
-	conn := meta.(*conns.AWSClient).GuardDutyConn(ctx)
+	conn := meta.(*conns.AWSClient).GuardDutyClient(ctx)
 
 	adminAccount, err := GetOrganizationAdminAccount(ctx, conn, d.Id())
 
@@ -86,13 +87,13 @@ func resourceOrganizationAdminAccountRead(ctx context.Context, d *schema.Resourc
 
 func resourceOrganizationAdminAccountDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
-	conn := meta.(*conns.AWSClient).GuardDutyConn(ctx)
+	conn := meta.(*conns.AWSClient).GuardDutyClient(ctx)
 
 	input := &guardduty.DisableOrganizationAdminAccountInput{
 		AdminAccountId: aws.String(d.Id()),
 	}
 
-	_, err := conn.DisableOrganizationAdminAccountWithContext(ctx, input)
+	_, err := conn.DisableOrganizationAdminAccount(ctx, input)
 
 	if err != nil {
 		return sdkdiag.AppendErrorf(diags, "disabling GuardDuty Organization Admin Account (%s): %s", d.Id(), err)
@@ -105,9 +106,9 @@ func resourceOrganizationAdminAccountDelete(ctx context.Context, d *schema.Resou
 	return diags
 }
 
-func GetOrganizationAdminAccount(ctx context.Context, conn *guardduty.GuardDuty, adminAccountID string) (*guardduty.AdminAccount, error) {
+func GetOrganizationAdminAccount(ctx context.Context, conn *guardduty.Client, adminAccountID string) (*awstypes.AdminAccount, error) {
 	input := &guardduty.ListOrganizationAdminAccountsInput{}
-	var result *guardduty.AdminAccount
+	var result *awstypes.AdminAccount
 
 	err := conn.ListOrganizationAdminAccountsPagesWithContext(ctx, input, func(page *guardduty.ListOrganizationAdminAccountsOutput, lastPage bool) bool {
 		if page == nil {
@@ -119,7 +120,7 @@ func GetOrganizationAdminAccount(ctx context.Context, conn *guardduty.GuardDuty,
 				continue
 			}
 
-			if aws.StringValue(adminAccount.AdminAccountId) == adminAccountID {
+			if aws.ToString(adminAccount.AdminAccountId) == adminAccountID {
 				result = adminAccount
 				return false
 			}

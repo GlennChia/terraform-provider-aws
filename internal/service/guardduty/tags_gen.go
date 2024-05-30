@@ -5,8 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/guardduty"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	"github.com/aws/aws-sdk-go/service/guardduty/guarddutyiface"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
@@ -24,7 +25,7 @@ func listTags(ctx context.Context, conn guarddutyiface.GuardDutyAPI, identifier 
 		ResourceArn: aws.String(identifier),
 	}
 
-	output, err := conn.ListTagsForResourceWithContext(ctx, input)
+	output, err := conn.ListTagsForResource(ctx, input)
 
 	if err != nil {
 		return tftags.New(ctx, nil), err
@@ -36,7 +37,7 @@ func listTags(ctx context.Context, conn guarddutyiface.GuardDutyAPI, identifier 
 // ListTags lists guardduty service tags and set them in Context.
 // It is called from outside this package.
 func (p *servicePackage) ListTags(ctx context.Context, meta any, identifier string) error {
-	tags, err := listTags(ctx, meta.(*conns.AWSClient).GuardDutyConn(ctx), identifier)
+	tags, err := listTags(ctx, meta.(*conns.AWSClient).GuardDutyClient(ctx), identifier)
 
 	if err != nil {
 		return err
@@ -97,7 +98,7 @@ func updateTags(ctx context.Context, conn guarddutyiface.GuardDutyAPI, identifie
 			TagKeys:     aws.StringSlice(removedTags.Keys()),
 		}
 
-		_, err := conn.UntagResourceWithContext(ctx, input)
+		_, err := conn.UntagResource(ctx, input)
 
 		if err != nil {
 			return fmt.Errorf("untagging resource (%s): %w", identifier, err)
@@ -112,7 +113,7 @@ func updateTags(ctx context.Context, conn guarddutyiface.GuardDutyAPI, identifie
 			Tags:        Tags(updatedTags),
 		}
 
-		_, err := conn.TagResourceWithContext(ctx, input)
+		_, err := conn.TagResource(ctx, input)
 
 		if err != nil {
 			return fmt.Errorf("tagging resource (%s): %w", identifier, err)
@@ -125,5 +126,5 @@ func updateTags(ctx context.Context, conn guarddutyiface.GuardDutyAPI, identifie
 // UpdateTags updates guardduty service tags.
 // It is called from outside this package.
 func (p *servicePackage) UpdateTags(ctx context.Context, meta any, identifier string, oldTags, newTags any) error {
-	return updateTags(ctx, meta.(*conns.AWSClient).GuardDutyConn(ctx), identifier, oldTags, newTags)
+	return updateTags(ctx, meta.(*conns.AWSClient).GuardDutyClient(ctx), identifier, oldTags, newTags)
 }

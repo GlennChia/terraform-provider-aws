@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/guardduty"
-	"github.com/hashicorp/aws-sdk-go-base/v2/awsv1shim/v2/tfawserr"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
+	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-provider-aws/internal/acctest"
@@ -181,7 +182,7 @@ func testAccMember_invitationMessage(t *testing.T) {
 
 func testAccCheckMemberDestroy(ctx context.Context) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		conn := acctest.Provider.Meta().(*conns.AWSClient).GuardDutyConn(ctx)
+		conn := acctest.Provider.Meta().(*conns.AWSClient).GuardDutyClient(ctx)
 
 		for _, rs := range s.RootModule().Resources {
 			if rs.Type != "aws_guardduty_member" {
@@ -198,9 +199,9 @@ func testAccCheckMemberDestroy(ctx context.Context) resource.TestCheckFunc {
 				DetectorId: aws.String(detectorID),
 			}
 
-			gmo, err := conn.GetMembersWithContext(ctx, input)
+			gmo, err := conn.GetMembers(ctx, input)
 			if err != nil {
-				if tfawserr.ErrMessageContains(err, guardduty.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
+				if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
 					return nil
 				}
 				return err
@@ -234,8 +235,8 @@ func testAccCheckMemberExists(ctx context.Context, name string) resource.TestChe
 			DetectorId: aws.String(detectorID),
 		}
 
-		conn := acctest.Provider.Meta().(*conns.AWSClient).GuardDutyConn(ctx)
-		gmo, err := conn.GetMembersWithContext(ctx, input)
+		conn := acctest.Provider.Meta().(*conns.AWSClient).GuardDutyClient(ctx)
+		gmo, err := conn.GetMembers(ctx, input)
 		if err != nil {
 			return err
 		}

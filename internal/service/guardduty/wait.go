@@ -7,7 +7,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/guardduty"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 )
 
@@ -30,17 +31,17 @@ const (
 )
 
 // waitAdminAccountEnabled waits for an AdminAccount to return Enabled
-func waitAdminAccountEnabled(ctx context.Context, conn *guardduty.GuardDuty, adminAccountID string) (*guardduty.AdminAccount, error) {
+func waitAdminAccountEnabled(ctx context.Context, conn *guardduty.Client, adminAccountID string) (*awstypes.AdminAccount, error) {
 	stateConf := &retry.StateChangeConf{
 		Pending: []string{adminStatusNotFound},
-		Target:  []string{guardduty.AdminStatusEnabled},
+		Target:  []string{awstypes.AdminStatusEnabled},
 		Refresh: statusAdminAccountAdmin(ctx, conn, adminAccountID),
 		Timeout: adminAccountEnabledTimeout,
 	}
 
 	outputRaw, err := stateConf.WaitForStateContext(ctx)
 
-	if output, ok := outputRaw.(*guardduty.AdminAccount); ok {
+	if output, ok := outputRaw.(*awstypes.AdminAccount); ok {
 		return output, err
 	}
 
@@ -48,9 +49,9 @@ func waitAdminAccountEnabled(ctx context.Context, conn *guardduty.GuardDuty, adm
 }
 
 // waitAdminAccountNotFound waits for an AdminAccount to return NotFound
-func waitAdminAccountNotFound(ctx context.Context, conn *guardduty.GuardDuty, adminAccountID string) (*guardduty.AdminAccount, error) {
+func waitAdminAccountNotFound(ctx context.Context, conn *guardduty.Client, adminAccountID string) (*awstypes.AdminAccount, error) {
 	stateConf := &retry.StateChangeConf{
-		Pending: []string{guardduty.AdminStatusDisableInProgress},
+		Pending: []string{awstypes.AdminStatusDisableInProgress},
 		Target:  []string{adminStatusNotFound},
 		Refresh: statusAdminAccountAdmin(ctx, conn, adminAccountID),
 		Timeout: adminAccountNotFoundTimeout,
@@ -58,7 +59,7 @@ func waitAdminAccountNotFound(ctx context.Context, conn *guardduty.GuardDuty, ad
 
 	outputRaw, err := stateConf.WaitForStateContext(ctx)
 
-	if output, ok := outputRaw.(*guardduty.AdminAccount); ok {
+	if output, ok := outputRaw.(*awstypes.AdminAccount); ok {
 		return output, err
 	}
 
@@ -66,10 +67,10 @@ func waitAdminAccountNotFound(ctx context.Context, conn *guardduty.GuardDuty, ad
 }
 
 // waitPublishingDestinationCreated waits for GuardDuty to return Publishing
-func waitPublishingDestinationCreated(ctx context.Context, conn *guardduty.GuardDuty, destinationID, detectorID string) (*guardduty.CreatePublishingDestinationOutput, error) {
+func waitPublishingDestinationCreated(ctx context.Context, conn *guardduty.Client, destinationID, detectorID string) (*guardduty.CreatePublishingDestinationOutput, error) {
 	stateConf := &retry.StateChangeConf{
-		Pending: []string{guardduty.PublishingStatusPendingVerification},
-		Target:  []string{guardduty.PublishingStatusPublishing},
+		Pending: []string{awstypes.PublishingStatusPendingVerification},
+		Target:  []string{awstypes.PublishingStatusPublishing},
 		Refresh: statusPublishingDestination(ctx, conn, destinationID, detectorID),
 		Timeout: publishingDestinationCreatedTimeout,
 	}
