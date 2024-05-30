@@ -7,8 +7,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
-	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
-	"github.com/aws/aws-sdk-go/service/guardduty/guarddutyiface"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
 	"github.com/hashicorp/terraform-provider-aws/internal/logging"
@@ -20,12 +18,12 @@ import (
 // listTags lists guardduty service tags.
 // The identifier is typically the Amazon Resource Name (ARN), although
 // it may also be a different identifier depending on the service.
-func listTags(ctx context.Context, conn guarddutyiface.GuardDutyAPI, identifier string) (tftags.KeyValueTags, error) {
+func listTags(ctx context.Context, conn *guardduty.Client, identifier string, optFns ...func(*guardduty.Options)) (tftags.KeyValueTags, error) {
 	input := &guardduty.ListTagsForResourceInput{
 		ResourceArn: aws.String(identifier),
 	}
 
-	output, err := conn.ListTagsForResource(ctx, input)
+	output, err := conn.ListTagsForResource(ctx, input, optFns...)
 
 	if err != nil {
 		return tftags.New(ctx, nil), err
@@ -50,21 +48,21 @@ func (p *servicePackage) ListTags(ctx context.Context, meta any, identifier stri
 	return nil
 }
 
-// map[string]*string handling
+// map[string]string handling
 
 // Tags returns guardduty service tags.
-func Tags(tags tftags.KeyValueTags) map[string]*string {
-	return aws.StringMap(tags.Map())
+func Tags(tags tftags.KeyValueTags) map[string]string {
+	return tags.Map()
 }
 
 // KeyValueTags creates tftags.KeyValueTags from guardduty service tags.
-func KeyValueTags(ctx context.Context, tags map[string]*string) tftags.KeyValueTags {
+func KeyValueTags(ctx context.Context, tags map[string]string) tftags.KeyValueTags {
 	return tftags.New(ctx, tags)
 }
 
 // getTagsIn returns guardduty service tags from Context.
 // nil is returned if there are no input tags.
-func getTagsIn(ctx context.Context) map[string]*string {
+func getTagsIn(ctx context.Context) map[string]string {
 	if inContext, ok := tftags.FromContext(ctx); ok {
 		if tags := Tags(inContext.TagsIn.UnwrapOrDefault()); len(tags) > 0 {
 			return tags
@@ -75,7 +73,7 @@ func getTagsIn(ctx context.Context) map[string]*string {
 }
 
 // setTagsOut sets guardduty service tags in Context.
-func setTagsOut(ctx context.Context, tags map[string]*string) {
+func setTagsOut(ctx context.Context, tags map[string]string) {
 	if inContext, ok := tftags.FromContext(ctx); ok {
 		inContext.TagsOut = option.Some(KeyValueTags(ctx, tags))
 	}
@@ -84,7 +82,7 @@ func setTagsOut(ctx context.Context, tags map[string]*string) {
 // updateTags updates guardduty service tags.
 // The identifier is typically the Amazon Resource Name (ARN), although
 // it may also be a different identifier depending on the service.
-func updateTags(ctx context.Context, conn guarddutyiface.GuardDutyAPI, identifier string, oldTagsMap, newTagsMap any) error {
+func updateTags(ctx context.Context, conn *guardduty.Client, identifier string, oldTagsMap, newTagsMap any, optFns ...func(*guardduty.Options)) error {
 	oldTags := tftags.New(ctx, oldTagsMap)
 	newTags := tftags.New(ctx, newTagsMap)
 
@@ -95,10 +93,10 @@ func updateTags(ctx context.Context, conn guarddutyiface.GuardDutyAPI, identifie
 	if len(removedTags) > 0 {
 		input := &guardduty.UntagResourceInput{
 			ResourceArn: aws.String(identifier),
-			TagKeys:     aws.StringSlice(removedTags.Keys()),
+			TagKeys:     removedTags.Keys(),
 		}
 
-		_, err := conn.UntagResource(ctx, input)
+		_, err := conn.UntagResource(ctx, input, optFns...)
 
 		if err != nil {
 			return fmt.Errorf("untagging resource (%s): %w", identifier, err)
@@ -113,7 +111,7 @@ func updateTags(ctx context.Context, conn guarddutyiface.GuardDutyAPI, identifie
 			Tags:        Tags(updatedTags),
 		}
 
-		_, err := conn.TagResource(ctx, input)
+		_, err := conn.TagResource(ctx, input, optFns...)
 
 		if err != nil {
 			return fmt.Errorf("tagging resource (%s): %w", identifier, err)
