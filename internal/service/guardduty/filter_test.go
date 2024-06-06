@@ -13,8 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/acmpca"
 	acmpca_types "github.com/aws/aws-sdk-go-v2/service/acmpca/types"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
-	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
-	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-provider-aws/internal/acctest"
@@ -238,7 +237,8 @@ func testAccCheckFilterDestroy(ctx context.Context) resource.TestCheckFunc {
 
 			_, err = conn.GetFilter(ctx, input)
 			if err != nil {
-				if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
+				if errs.IsAErrorMessageContains[*types.BadRequestException](err, "The request is rejected because the input detectorId is not owned by the current account.") {
+					// if tfawserr.ErrMessageContains(err, errCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
 					return nil
 				}
 				return err

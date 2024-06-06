@@ -11,10 +11,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
 	"github.com/hashicorp/terraform-provider-aws/internal/enum"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs/sdkdiag"
@@ -39,15 +39,15 @@ func ResourceDetectorFeature() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						names.AttrName: {
-							Type:         schema.TypeString,
-							Required:     true,
-							ForceNew:     true,
-							ValidateFunc: enum.Validate[awstypes.FeatureAdditionalConfiguration](),
+							Type:             schema.TypeString,
+							Required:         true,
+							ForceNew:         true,
+							ValidateDiagFunc: enum.Validate[types.FeatureAdditionalConfiguration](),
 						},
 						names.AttrStatus: {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: enum.Validate[awstypes.FeatureStatus](),
+							Type:             schema.TypeString,
+							Required:         true,
+							ValidateDiagFunc: enum.Validate[types.FeatureStatus](),
 						},
 					},
 				},
@@ -58,15 +58,15 @@ func ResourceDetectorFeature() *schema.Resource {
 				ForceNew: true,
 			},
 			names.AttrName: {
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: enum.Validate[awstypes.DetectorFeature](),
+				Type:             schema.TypeString,
+				Required:         true,
+				ForceNew:         true,
+				ValidateDiagFunc: enum.Validate[types.DetectorFeature](),
 			},
 			names.AttrStatus: {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: enum.Validate[awstypes.FeatureStatus](),
+				Type:             schema.TypeString,
+				Required:         true,
+				ValidateDiagFunc: enum.Validate[types.FeatureStatus](),
 			},
 		},
 	}
@@ -76,10 +76,10 @@ func resourceDetectorFeaturePut(ctx context.Context, d *schema.ResourceData, met
 	var diags diag.Diagnostics
 	conn := meta.(*conns.AWSClient).GuardDutyClient(ctx)
 
-	detectorID, name := d.Get("detector_id").(string), d.Get(names.AttrName).(string)
-	feature := &awstypes.DetectorFeatureConfiguration{
-		Name:   aws.String(name),
-		Status: aws.String(d.Get(names.AttrStatus).(string)),
+	detectorID, name, status := d.Get("detector_id").(string), d.Get(names.AttrName).(string), d.Get(names.AttrStatus).(string)
+	feature := types.DetectorFeatureConfiguration{
+		Name:   types.DetectorFeature(name),
+		Status: types.FeatureStatus(status),
 	}
 
 	if v, ok := d.GetOk("additional_configuration"); ok && len(v.([]interface{})) > 0 {
@@ -88,9 +88,8 @@ func resourceDetectorFeaturePut(ctx context.Context, d *schema.ResourceData, met
 
 	input := &guardduty.UpdateDetectorInput{
 		DetectorId: aws.String(detectorID),
-		Features:   []*awstypes.DetectorFeatureConfiguration{feature},
+		Features:   []types.DetectorFeatureConfiguration{feature},
 	}
-
 	_, err := conn.UpdateDetector(ctx, input)
 
 	if err != nil {
@@ -166,30 +165,27 @@ func FindDetectorFeatureByTwoPartKey(ctx context.Context, conn *guardduty.Client
 	}))
 }
 
-func expandDetectorAdditionalConfiguration(tfMap map[string]interface{}) *awstypes.DetectorAdditionalConfiguration {
-	if tfMap == nil {
-		return nil
-	}
+func expandDetectorAdditionalConfiguration(tfMap map[string]interface{}) awstypes.DetectorAdditionalConfiguration {
 
-	apiObject := &awstypes.DetectorAdditionalConfiguration{}
+	apiObject := awstypes.DetectorAdditionalConfiguration{}
 
 	if v, ok := tfMap[names.AttrName].(string); ok && v != "" {
-		apiObject.Name = aws.String(v)
+		apiObject.Name = types.FeatureAdditionalConfiguration(v)
 	}
 
 	if v, ok := tfMap[names.AttrStatus].(string); ok && v != "" {
-		apiObject.Status = aws.String(v)
+		apiObject.Status = types.FeatureStatus(v)
 	}
 
 	return apiObject
 }
 
-func expandDetectorAdditionalConfigurations(tfList []interface{}) []*awstypes.DetectorAdditionalConfiguration {
+func expandDetectorAdditionalConfigurations(tfList []interface{}) []types.DetectorAdditionalConfiguration {
 	if len(tfList) == 0 {
 		return nil
 	}
 
-	var apiObjects []*awstypes.DetectorAdditionalConfiguration
+	var apiObjects []types.DetectorAdditionalConfiguration
 
 	for _, tfMapRaw := range tfList {
 		tfMap, ok := tfMapRaw.(map[string]interface{})
@@ -200,39 +196,26 @@ func expandDetectorAdditionalConfigurations(tfList []interface{}) []*awstypes.De
 
 		apiObject := expandDetectorAdditionalConfiguration(tfMap)
 
-		if apiObject == nil {
-			continue
-		}
-
 		apiObjects = append(apiObjects, apiObject)
 	}
 
 	return apiObjects
 }
 
-func flattenDetectorFeatureConfigurationResult(apiObject *awstypes.DetectorFeatureConfigurationResult) map[string]interface{} {
-	if apiObject == nil {
-		return nil
-	}
+func flattenDetectorFeatureConfigurationResult(apiObject types.DetectorFeatureConfigurationResult) map[string]interface{} {
 
-	tfMap := map[string]interface{}{}
+	tfMap := map[string]interface{}{
+		names.AttrName:   apiObject.Name,
+		names.AttrStatus: apiObject.Status,
+	}
 
 	if v := apiObject.AdditionalConfiguration; v != nil {
 		tfMap["additional_configuration"] = flattenDetectorAdditionalConfigurationResults(v)
 	}
-
-	if v := apiObject.Name; v != nil {
-		tfMap[names.AttrName] = aws.ToString(v)
-	}
-
-	if v := apiObject.Status; v != nil {
-		tfMap[names.AttrStatus] = aws.ToString(v)
-	}
-
 	return tfMap
 }
 
-func flattenDetectorFeatureConfigurationResults(apiObjects []*awstypes.DetectorFeatureConfigurationResult) []interface{} {
+func flattenDetectorFeatureConfigurationResults(apiObjects []awstypes.DetectorFeatureConfigurationResult) []interface{} {
 	if len(apiObjects) == 0 {
 		return nil
 	}
@@ -240,9 +223,6 @@ func flattenDetectorFeatureConfigurationResults(apiObjects []*awstypes.DetectorF
 	var tfList []interface{}
 
 	for _, apiObject := range apiObjects {
-		if apiObject == nil {
-			continue
-		}
 
 		tfList = append(tfList, flattenDetectorFeatureConfigurationResult(apiObject))
 	}
@@ -250,25 +230,17 @@ func flattenDetectorFeatureConfigurationResults(apiObjects []*awstypes.DetectorF
 	return tfList
 }
 
-func flattenDetectorAdditionalConfigurationResult(apiObject *awstypes.DetectorAdditionalConfigurationResult) map[string]interface{} {
-	if apiObject == nil {
-		return nil
-	}
+func flattenDetectorAdditionalConfigurationResult(apiObject types.DetectorAdditionalConfigurationResult) map[string]interface{} {
 
-	tfMap := map[string]interface{}{}
-
-	if v := apiObject.Name; v != nil {
-		tfMap[names.AttrName] = aws.ToString(v)
-	}
-
-	if v := apiObject.Status; v != nil {
-		tfMap[names.AttrStatus] = aws.ToString(v)
+	tfMap := map[string]interface{}{
+		names.AttrName:   apiObject.Name,
+		names.AttrStatus: apiObject.Status,
 	}
 
 	return tfMap
 }
 
-func flattenDetectorAdditionalConfigurationResults(apiObjects []*awstypes.DetectorAdditionalConfigurationResult) []interface{} {
+func flattenDetectorAdditionalConfigurationResults(apiObjects []types.DetectorAdditionalConfigurationResult) []interface{} {
 	if len(apiObjects) == 0 {
 		return nil
 	}
@@ -276,9 +248,6 @@ func flattenDetectorAdditionalConfigurationResults(apiObjects []*awstypes.Detect
 	var tfList []interface{}
 
 	for _, apiObject := range apiObjects {
-		if apiObject == nil {
-			continue
-		}
 
 		tfList = append(tfList, flattenDetectorAdditionalConfigurationResult(apiObject))
 	}

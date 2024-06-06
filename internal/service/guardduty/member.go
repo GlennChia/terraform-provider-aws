@@ -12,12 +12,13 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
-	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
+	"github.com/hashicorp/terraform-provider-aws/internal/errs"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs/sdkdiag"
 	"github.com/hashicorp/terraform-provider-aws/internal/tfresource"
 	"github.com/hashicorp/terraform-provider-aws/internal/verify"
@@ -86,7 +87,7 @@ func resourceMemberCreate(ctx context.Context, d *schema.ResourceData, meta inte
 	detectorID := d.Get("detector_id").(string)
 
 	input := guardduty.CreateMembersInput{
-		AccountDetails: []*awstypes.AccountDetail{{
+		AccountDetails: []awstypes.AccountDetail{{
 			AccountId: aws.String(accountID),
 			Email:     aws.String(d.Get(names.AttrEmail).(string)),
 		}},
@@ -107,7 +108,7 @@ func resourceMemberCreate(ctx context.Context, d *schema.ResourceData, meta inte
 
 	imi := &guardduty.InviteMembersInput{
 		DetectorId:               aws.String(detectorID),
-		AccountIds:               []*string{aws.String(accountID)},
+		AccountIds:               []string{accountID},
 		DisableEmailNotification: aws.Bool(d.Get("disable_email_notification").(bool)),
 		Message:                  aws.String(d.Get("invitation_message").(string)),
 	}
@@ -136,14 +137,15 @@ func resourceMemberRead(ctx context.Context, d *schema.ResourceData, meta interf
 	}
 
 	input := guardduty.GetMembersInput{
-		AccountIds: []*string{aws.String(accountID)},
+		AccountIds: []string{accountID},
 		DetectorId: aws.String(detectorID),
 	}
 
 	log.Printf("[DEBUG] Reading GuardDuty Member: %s", input)
 	gmo, err := conn.GetMembers(ctx, &input)
 	if err != nil {
-		if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
+		if errs.IsAErrorMessageContains[*types.BadRequestException](err, "The request is rejected because the input detectorId is not owned by the current account.") {
+			// if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
 			log.Printf("[WARN] GuardDuty detector %q not found, removing from state", d.Id())
 			d.SetId("")
 			return diags
@@ -187,7 +189,7 @@ func resourceMemberUpdate(ctx context.Context, d *schema.ResourceData, meta inte
 		if d.Get("invite").(bool) {
 			input := &guardduty.InviteMembersInput{
 				DetectorId:               aws.String(detectorID),
-				AccountIds:               []*string{aws.String(accountID)},
+				AccountIds:               []string{accountID},
 				DisableEmailNotification: aws.Bool(d.Get("disable_email_notification").(bool)),
 				Message:                  aws.String(d.Get("invitation_message").(string)),
 			}
@@ -209,7 +211,7 @@ func resourceMemberUpdate(ctx context.Context, d *schema.ResourceData, meta inte
 			}
 		} else {
 			input := &guardduty.DisassociateMembersInput{
-				AccountIds: []*string{aws.String(accountID)},
+				AccountIds: []string{accountID},
 				DetectorId: aws.String(detectorID),
 			}
 			log.Printf("[INFO] Disassociating GuardDuty Member: %s", input)
@@ -233,7 +235,7 @@ func resourceMemberDelete(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	input := guardduty.DeleteMembersInput{
-		AccountIds: []*string{aws.String(accountID)},
+		AccountIds: []string{accountID},
 		DetectorId: aws.String(detectorID),
 	}
 
@@ -248,7 +250,7 @@ func resourceMemberDelete(ctx context.Context, d *schema.ResourceData, meta inte
 func inviteMemberWaiter(ctx context.Context, accountID, detectorID string, timeout time.Duration, conn *guardduty.Client) error {
 	input := guardduty.GetMembersInput{
 		DetectorId: aws.String(detectorID),
-		AccountIds: []*string{aws.String(accountID)},
+		AccountIds: []string{accountID},
 	}
 
 	// wait until e-mail verification finishes

@@ -33,10 +33,6 @@ func statusAdminAccountAdmin(ctx context.Context, conn *guardduty.Client, adminA
 			return nil, adminStatusUnknown, err
 		}
 
-		if adminAccount == nil {
-			return adminAccount, adminStatusNotFound, nil
-		}
-
 		return adminAccount, string(adminAccount.AdminStatus), nil
 	}
 }
@@ -59,14 +55,14 @@ func statusPublishingDestination(ctx context.Context, conn *guardduty.Client, de
 			return output, publishingStatusUnknown, nil
 		}
 
-		return output, aws.ToString(output.Status), nil
+		return output, string(output.Status), nil
 	}
 }
 
 // TODO: Migrate to shared internal package guardduty
-func getOrganizationAdminAccount(ctx context.Context, conn *guardduty.Client, adminAccountID string) (*awstypes.AdminAccount, error) {
+func getOrganizationAdminAccount(ctx context.Context, conn *guardduty.Client, adminAccountID string) (awstypes.AdminAccount, error) {
 	input := &guardduty.ListOrganizationAdminAccountsInput{}
-	var result *awstypes.AdminAccount
+	var result awstypes.AdminAccount
 
 	err := conn.ListOrganizationAdminAccountsPagesWithContext(ctx, input, func(page *guardduty.ListOrganizationAdminAccountsOutput, lastPage bool) bool {
 		if page == nil {
@@ -74,9 +70,6 @@ func getOrganizationAdminAccount(ctx context.Context, conn *guardduty.Client, ad
 		}
 
 		for _, adminAccount := range page.AdminAccounts {
-			if adminAccount == nil {
-				continue
-			}
 
 			if aws.ToString(adminAccount.AdminAccountId) == adminAccountID {
 				result = adminAccount

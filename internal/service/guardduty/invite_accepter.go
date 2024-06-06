@@ -11,12 +11,12 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
-	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
-	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
+	"github.com/hashicorp/terraform-provider-aws/internal/errs"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs/sdkdiag"
 	"github.com/hashicorp/terraform-provider-aws/internal/tfresource"
 	"github.com/hashicorp/terraform-provider-aws/internal/verify"
@@ -130,7 +130,8 @@ func resourceInviteAccepterRead(ctx context.Context, d *schema.ResourceData, met
 	log.Printf("[DEBUG] Reading GuardDuty Master Account: %s", input)
 	output, err := conn.GetMasterAccount(ctx, input)
 
-	if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
+	if errs.IsAErrorMessageContains[*types.BadRequestException](err, "The request is rejected because the input detectorId is not owned by the current account.") {
+		// if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
 		log.Printf("[WARN] GuardDuty Detector %q not found, removing from state", d.Id())
 		d.SetId("")
 		return diags
@@ -161,7 +162,8 @@ func resourceInviteAccepterDelete(ctx context.Context, d *schema.ResourceData, m
 	log.Printf("[DEBUG] Disassociating GuardDuty Detector (%s) from GuardDuty Master Account: %s", d.Id(), input)
 	_, err := conn.DisassociateFromMasterAccount(ctx, input)
 
-	if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
+	if errs.IsAErrorMessageContains[*types.BadRequestException](err, "The request is rejected because the input detectorId is not owned by the current account.") {
+		// if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
 		return diags
 	}
 

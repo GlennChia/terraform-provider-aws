@@ -9,8 +9,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
-	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
 	"github.com/hashicorp/terraform-provider-aws/internal/enum"
+	"github.com/hashicorp/terraform-provider-aws/internal/errs"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs/sdkdiag"
 	"github.com/hashicorp/terraform-provider-aws/internal/tfresource"
 )
@@ -43,11 +44,11 @@ func ResourceOrganizationConfiguration() *schema.Resource {
 				Deprecated:   "Use auto_enable_organization_members instead",
 			},
 			"auto_enable_organization_members": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Computed:     true,
-				ExactlyOneOf: []string{"auto_enable", "auto_enable_organization_members"},
-				ValidateFunc: enum.Validate[awstypes.AutoEnableMembers](),
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				ExactlyOneOf:     []string{"auto_enable", "auto_enable_organization_members"},
+				ValidateDiagFunc: enum.Validate[awstypes.AutoEnableMembers](),
 			},
 			"datasources": {
 				Type:     schema.TypeList,
@@ -150,7 +151,7 @@ func ResourceOrganizationConfiguration() *schema.Resource {
 				// AutoEnable in the resource update function.
 
 				if attr := d.GetRawConfig().GetAttr("auto_enable_organization_members"); attr.IsKnown() && !attr.IsNull() {
-					return d.SetNew("auto_enable", attr.AsString() != awstypes.AutoEnableMembersNone)
+					return d.SetNew("auto_enable", attr.AsString() != string(awstypes.AutoEnableMembersNone))
 				}
 
 				if attr := d.GetRawConfig().GetAttr("auto_enable"); attr.IsKnown() && !attr.IsNull() {
@@ -173,7 +174,7 @@ func resourceOrganizationConfigurationPut(ctx context.Context, d *schema.Resourc
 
 	detectorID := d.Get("detector_id").(string)
 	input := &guardduty.UpdateOrganizationConfigurationInput{
-		AutoEnableOrganizationMembers: aws.String(d.Get("auto_enable_organization_members").(string)),
+		AutoEnableOrganizationMembers: types.AutoEnableMembers(d.Get("auto_enable_organization_members").(string)),
 		DetectorId:                    aws.String(detectorID),
 	}
 
@@ -466,8 +467,8 @@ func FindOrganizationConfigurationByID(ctx context.Context, conn *guardduty.Clie
 	}
 
 	output, err := conn.DescribeOrganizationConfiguration(ctx, input)
-
-	if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
+	if errs.IsAErrorMessageContains[*types.BadRequestException](err, "The request is rejected because the input detectorId is not owned by the current account.") {
+		// if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
 		return nil, &retry.NotFoundError{
 			LastError:   err,
 			LastRequest: input,
