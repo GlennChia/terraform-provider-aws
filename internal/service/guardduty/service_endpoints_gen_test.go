@@ -215,7 +215,7 @@ func TestEndpointConfiguration(t *testing.T) { //nolint:paralleltest // uses t.S
 func defaultEndpoint(region string) string {
 	r := endpoints.DefaultResolver()
 
-	ep, err := r.EndpointFor(guardduty_sdkv1.EndpointsID, region)
+	ep, err := r.EndpointFor("guardduty", region)
 	if err != nil {
 		return err.Error()
 	}
@@ -234,7 +234,7 @@ func callService(ctx context.Context, t *testing.T, meta *conns.AWSClient) strin
 
 	client := meta.GuardDutyClient(ctx)
 
-	req, _ := client.ListDetectorsRequest(&guardduty_sdkv1.ListDetectorsInput{})
+	req, _ := client.ListDetectorsRequest(guardduty_sdkv1.ListDetectorsInput{})
 
 	req.HTTPRequest.URL.Path = "/"
 

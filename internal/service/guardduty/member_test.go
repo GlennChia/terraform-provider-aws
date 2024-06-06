@@ -10,12 +10,12 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
-	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
-	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-provider-aws/internal/acctest"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
+	"github.com/hashicorp/terraform-provider-aws/internal/errs"
 	tfguardduty "github.com/hashicorp/terraform-provider-aws/internal/service/guardduty"
 	"github.com/hashicorp/terraform-provider-aws/names"
 )
@@ -195,13 +195,15 @@ func testAccCheckMemberDestroy(ctx context.Context) resource.TestCheckFunc {
 			}
 
 			input := &guardduty.GetMembersInput{
-				AccountIds: []*string{aws.String(accountID)},
+				AccountIds: []string{accountID},
 				DetectorId: aws.String(detectorID),
 			}
 
 			gmo, err := conn.GetMembers(ctx, input)
 			if err != nil {
-				if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
+
+				if errs.IsAErrorMessageContains[*types.BadRequestException](err, "The request is rejected because the input detectorId is not owned by the current account.") {
+					// if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
 					return nil
 				}
 				return err
@@ -231,7 +233,7 @@ func testAccCheckMemberExists(ctx context.Context, name string) resource.TestChe
 		}
 
 		input := &guardduty.GetMembersInput{
-			AccountIds: []*string{aws.String(accountID)},
+			AccountIds: []string{accountID},
 			DetectorId: aws.String(detectorID),
 		}
 

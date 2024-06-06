@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs/sdkdiag"
+	"github.com/hashicorp/terraform-provider-aws/internal/tfresource"
 	"github.com/hashicorp/terraform-provider-aws/internal/verify"
 )
 
@@ -70,14 +71,14 @@ func resourceOrganizationAdminAccountRead(ctx context.Context, d *schema.Resourc
 
 	adminAccount, err := GetOrganizationAdminAccount(ctx, conn, d.Id())
 
-	if err != nil {
-		return sdkdiag.AppendErrorf(diags, "reading GuardDuty Organization Admin Account (%s): %s", d.Id(), err)
-	}
-
-	if adminAccount == nil {
+	if tfresource.NotFound(err) {
 		log.Printf("[WARN] GuardDuty Organization Admin Account (%s) not found, removing from state", d.Id())
 		d.SetId("")
 		return diags
+	}
+
+	if err != nil {
+		return sdkdiag.AppendErrorf(diags, "reading GuardDuty Organization Admin Account (%s): %s", d.Id(), err)
 	}
 
 	d.Set("admin_account_id", adminAccount.AdminAccountId)
@@ -106,9 +107,9 @@ func resourceOrganizationAdminAccountDelete(ctx context.Context, d *schema.Resou
 	return diags
 }
 
-func GetOrganizationAdminAccount(ctx context.Context, conn *guardduty.Client, adminAccountID string) (*awstypes.AdminAccount, error) {
+func GetOrganizationAdminAccount(ctx context.Context, conn *guardduty.Client, adminAccountID string) (awstypes.AdminAccount, error) {
 	input := &guardduty.ListOrganizationAdminAccountsInput{}
-	var result *awstypes.AdminAccount
+	var result awstypes.AdminAccount
 
 	err := conn.ListOrganizationAdminAccountsPagesWithContext(ctx, input, func(page *guardduty.ListOrganizationAdminAccountsOutput, lastPage bool) bool {
 		if page == nil {
@@ -116,9 +117,6 @@ func GetOrganizationAdminAccount(ctx context.Context, conn *guardduty.Client, ad
 		}
 
 		for _, adminAccount := range page.AdminAccounts {
-			if adminAccount == nil {
-				continue
-			}
 
 			if aws.ToString(adminAccount.AdminAccountId) == adminAccountID {
 				result = adminAccount

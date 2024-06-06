@@ -11,11 +11,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
-	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
 	"github.com/hashicorp/terraform-provider-aws/internal/enum"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs"
@@ -43,10 +42,10 @@ func ResourcePublishingDestination() *schema.Resource {
 				ForceNew: true,
 			},
 			"destination_type": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Default:      awstypes.DestinationTypeS3,
-				ValidateFunc: enum.Validate[awstypes.DestinationType](),
+				Type:             schema.TypeString,
+				Optional:         true,
+				Default:          awstypes.DestinationTypeS3,
+				ValidateDiagFunc: enum.Validate[awstypes.DestinationType](),
 			},
 			names.AttrDestinationARN: {
 				Type:         schema.TypeString,
@@ -73,7 +72,7 @@ func resourcePublishingDestinationCreate(ctx context.Context, d *schema.Resource
 			DestinationArn: aws.String(d.Get(names.AttrDestinationARN).(string)),
 			KmsKeyArn:      aws.String(d.Get(names.AttrKMSKeyARN).(string)),
 		},
-		DestinationType: aws.String(d.Get("destination_type").(string)),
+		DestinationType: awstypes.DestinationType(d.Get("destination_type").(string)),
 	}
 
 	output, err := conn.CreatePublishingDestination(ctx, &input)
@@ -110,7 +109,8 @@ func resourcePublishingDestinationRead(ctx context.Context, d *schema.ResourceDa
 
 	gdo, err := conn.DescribePublishingDestination(ctx, input)
 	if err != nil {
-		if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the one or more input parameters have invalid values.") {
+		if errs.IsAErrorMessageContains[*types.BadRequestException](err, "The request is rejected because the one or more input parameters have invalid values.") {
+			// if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the one or more input parameters have invalid values.") {
 			log.Printf("[WARN] GuardDuty Publishing Destination: %q not found, removing from state", d.Id())
 			d.SetId("")
 			return diags

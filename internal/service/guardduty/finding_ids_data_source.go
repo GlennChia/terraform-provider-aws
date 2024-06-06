@@ -8,13 +8,12 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
-	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
-	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-provider-aws/internal/create"
+	"github.com/hashicorp/terraform-provider-aws/internal/errs"
 	"github.com/hashicorp/terraform-provider-aws/internal/framework"
 	"github.com/hashicorp/terraform-provider-aws/internal/framework/flex"
 	"github.com/hashicorp/terraform-provider-aws/names"
@@ -50,6 +49,7 @@ func (d *dataSourceFindingIds) Schema(ctx context.Context, req datasource.Schema
 				Computed:    true,
 				ElementType: types.StringType,
 			},
+
 			names.AttrID: framework.IDAttribute(),
 		},
 	}
@@ -80,18 +80,19 @@ func (d *dataSourceFindingIds) Read(ctx context.Context, req datasource.ReadRequ
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func findFindingIds(ctx context.Context, conn *guardduty.Client, id string) ([]*string, error) {
+func findFindingIds(ctx context.Context, conn *guardduty.Client, id string) ([]string, error) {
 	in := &guardduty.ListFindingsInput{
 		DetectorId: aws.String(id),
 	}
 
-	var findingIds []*string
+	var findingIds []string
 	err := conn.ListFindingsPagesWithContext(ctx, in, func(page *guardduty.ListFindingsOutput, lastPage bool) bool {
 		findingIds = append(findingIds, page.FindingIds...)
 		return !lastPage
 	})
 
-	if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
+	if errs.IsAErrorMessageContains[*types.BadRequestException](err, "The request is rejected because the input detectorId is not owned by the current account.") {
+		// if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
 		return nil, &retry.NotFoundError{
 			LastError:   err,
 			LastRequest: in,

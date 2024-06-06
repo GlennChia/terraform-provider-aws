@@ -34,7 +34,7 @@ const (
 func waitAdminAccountEnabled(ctx context.Context, conn *guardduty.Client, adminAccountID string) (*awstypes.AdminAccount, error) {
 	stateConf := &retry.StateChangeConf{
 		Pending: []string{adminStatusNotFound},
-		Target:  []string{awstypes.AdminStatusEnabled},
+		Target:  []string{string(awstypes.AdminStatusEnabled)},
 		Refresh: statusAdminAccountAdmin(ctx, conn, adminAccountID),
 		Timeout: adminAccountEnabledTimeout,
 	}
@@ -51,7 +51,7 @@ func waitAdminAccountEnabled(ctx context.Context, conn *guardduty.Client, adminA
 // waitAdminAccountNotFound waits for an AdminAccount to return NotFound
 func waitAdminAccountNotFound(ctx context.Context, conn *guardduty.Client, adminAccountID string) (*awstypes.AdminAccount, error) {
 	stateConf := &retry.StateChangeConf{
-		Pending: []string{awstypes.AdminStatusDisableInProgress},
+		Pending: []string{string(awstypes.AdminStatusDisableInProgress)},
 		Target:  []string{adminStatusNotFound},
 		Refresh: statusAdminAccountAdmin(ctx, conn, adminAccountID),
 		Timeout: adminAccountNotFoundTimeout,
@@ -69,8 +69,8 @@ func waitAdminAccountNotFound(ctx context.Context, conn *guardduty.Client, admin
 // waitPublishingDestinationCreated waits for GuardDuty to return Publishing
 func waitPublishingDestinationCreated(ctx context.Context, conn *guardduty.Client, destinationID, detectorID string) (*guardduty.CreatePublishingDestinationOutput, error) {
 	stateConf := &retry.StateChangeConf{
-		Pending: []string{awstypes.PublishingStatusPendingVerification},
-		Target:  []string{awstypes.PublishingStatusPublishing},
+		Pending: []string{string(awstypes.PublishingStatusPendingVerification)},
+		Target:  []string{string(awstypes.PublishingStatusPublishing)},
 		Refresh: statusPublishingDestination(ctx, conn, destinationID, detectorID),
 		Timeout: publishingDestinationCreatedTimeout,
 	}

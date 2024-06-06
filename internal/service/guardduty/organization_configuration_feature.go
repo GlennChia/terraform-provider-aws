@@ -11,10 +11,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
 	"github.com/hashicorp/terraform-provider-aws/internal/enum"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs/sdkdiag"
@@ -39,23 +39,23 @@ func ResourceOrganizationConfigurationFeature() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"auto_enable": {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: enum.Validate[awstypes.OrgFeatureStatus](),
+							Type:             schema.TypeString,
+							Required:         true,
+							ValidateDiagFunc: enum.Validate[awstypes.OrgFeatureStatus](),
 						},
 						names.AttrName: {
-							Type:         schema.TypeString,
-							Required:     true,
-							ForceNew:     true,
-							ValidateFunc: enum.Validate[awstypes.OrgFeatureAdditionalConfiguration](),
+							Type:             schema.TypeString,
+							Required:         true,
+							ForceNew:         true,
+							ValidateDiagFunc: enum.Validate[awstypes.OrgFeatureAdditionalConfiguration](),
 						},
 					},
 				},
 			},
 			"auto_enable": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: enum.Validate[awstypes.OrgFeatureStatus](),
+				Type:             schema.TypeString,
+				Required:         true,
+				ValidateDiagFunc: enum.Validate[awstypes.OrgFeatureStatus](),
 			},
 			"detector_id": {
 				Type:     schema.TypeString,
@@ -63,10 +63,10 @@ func ResourceOrganizationConfigurationFeature() *schema.Resource {
 				ForceNew: true,
 			},
 			names.AttrName: {
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: enum.Validate[awstypes.OrgFeature](),
+				Type:             schema.TypeString,
+				Required:         true,
+				ForceNew:         true,
+				ValidateDiagFunc: enum.Validate[awstypes.OrgFeature](),
 			},
 		},
 	}
@@ -90,9 +90,9 @@ func resourceOrganizationConfigurationFeaturePut(ctx context.Context, d *schema.
 	}
 
 	name := d.Get(names.AttrName).(string)
-	feature := &awstypes.OrganizationFeatureConfiguration{
-		AutoEnable: aws.String(d.Get("auto_enable").(string)),
-		Name:       aws.String(name),
+	feature := awstypes.OrganizationFeatureConfiguration{
+		AutoEnable: types.OrgFeatureStatus(d.Get("auto_enable").(string)),
+		Name:       types.OrgFeature(name),
 	}
 
 	if v, ok := d.GetOk("additional_configuration"); ok && len(v.([]interface{})) > 0 {
@@ -102,7 +102,7 @@ func resourceOrganizationConfigurationFeaturePut(ctx context.Context, d *schema.
 	input := &guardduty.UpdateOrganizationConfigurationInput{
 		AutoEnableOrganizationMembers: output.AutoEnableOrganizationMembers,
 		DetectorId:                    aws.String(detectorID),
-		Features:                      []*awstypes.OrganizationFeatureConfiguration{feature},
+		Features:                      []awstypes.OrganizationFeatureConfiguration{feature},
 	}
 
 	_, err = conn.UpdateOrganizationConfiguration(ctx, input)
@@ -180,30 +180,27 @@ func FindOrganizationConfigurationFeatureByTwoPartKey(ctx context.Context, conn 
 	}))
 }
 
-func expandOrganizationAdditionalConfiguration(tfMap map[string]interface{}) *awstypes.OrganizationAdditionalConfiguration {
-	if tfMap == nil {
-		return nil
-	}
+func expandOrganizationAdditionalConfiguration(tfMap map[string]interface{}) awstypes.OrganizationAdditionalConfiguration {
 
-	apiObject := &awstypes.OrganizationAdditionalConfiguration{}
+	apiObject := awstypes.OrganizationAdditionalConfiguration{}
 
 	if v, ok := tfMap["auto_enable"].(string); ok && v != "" {
-		apiObject.AutoEnable = aws.String(v)
+		apiObject.AutoEnable = types.OrgFeatureStatus(v)
 	}
 
 	if v, ok := tfMap[names.AttrName].(string); ok && v != "" {
-		apiObject.Name = aws.String(v)
+		apiObject.Name = types.OrgFeatureAdditionalConfiguration(v)
 	}
 
 	return apiObject
 }
 
-func expandOrganizationAdditionalConfigurations(tfList []interface{}) []*awstypes.OrganizationAdditionalConfiguration {
+func expandOrganizationAdditionalConfigurations(tfList []interface{}) []awstypes.OrganizationAdditionalConfiguration {
 	if len(tfList) == 0 {
 		return nil
 	}
 
-	var apiObjects []*awstypes.OrganizationAdditionalConfiguration
+	var apiObjects []awstypes.OrganizationAdditionalConfiguration
 
 	for _, tfMapRaw := range tfList {
 		tfMap, ok := tfMapRaw.(map[string]interface{})
@@ -214,35 +211,22 @@ func expandOrganizationAdditionalConfigurations(tfList []interface{}) []*awstype
 
 		apiObject := expandOrganizationAdditionalConfiguration(tfMap)
 
-		if apiObject == nil {
-			continue
-		}
-
 		apiObjects = append(apiObjects, apiObject)
 	}
 
 	return apiObjects
 }
 
-func flattenOrganizationAdditionalConfigurationResult(apiObject *awstypes.OrganizationAdditionalConfigurationResult) map[string]interface{} {
-	if apiObject == nil {
-		return nil
-	}
-
-	tfMap := map[string]interface{}{}
-
-	if v := apiObject.AutoEnable; v != nil {
-		tfMap["auto_enable"] = aws.ToString(v)
-	}
-
-	if v := apiObject.Name; v != nil {
-		tfMap[names.AttrName] = aws.ToString(v)
+func flattenOrganizationAdditionalConfigurationResult(apiObject awstypes.OrganizationAdditionalConfigurationResult) map[string]interface{} {
+	tfMap := map[string]interface{}{
+		"auto_enable":  apiObject.AutoEnable,
+		names.AttrName: apiObject.Name,
 	}
 
 	return tfMap
 }
 
-func flattenOrganizationAdditionalConfigurationResults(apiObjects []*awstypes.OrganizationAdditionalConfigurationResult) []interface{} {
+func flattenOrganizationAdditionalConfigurationResults(apiObjects []awstypes.OrganizationAdditionalConfigurationResult) []interface{} {
 	if len(apiObjects) == 0 {
 		return nil
 	}
@@ -250,9 +234,6 @@ func flattenOrganizationAdditionalConfigurationResults(apiObjects []*awstypes.Or
 	var tfList []interface{}
 
 	for _, apiObject := range apiObjects {
-		if apiObject == nil {
-			continue
-		}
 
 		tfList = append(tfList, flattenOrganizationAdditionalConfigurationResult(apiObject))
 	}

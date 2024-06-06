@@ -8,14 +8,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/service/guardduty"
-	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
-	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-provider-aws/internal/acctest"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
+	"github.com/hashicorp/terraform-provider-aws/internal/errs"
 	tfguardduty "github.com/hashicorp/terraform-provider-aws/internal/service/guardduty"
+	"github.com/hashicorp/terraform-provider-aws/internal/tfresource"
 	"github.com/hashicorp/terraform-provider-aws/names"
 )
 
@@ -58,9 +58,9 @@ func testAccCheckOrganizationAdminAccountDestroy(ctx context.Context) resource.T
 				continue
 			}
 
-			adminAccount, err := tfguardduty.GetOrganizationAdminAccount(ctx, conn, rs.Primary.ID)
-
-			if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "organization is not in use") {
+			_, err := tfguardduty.GetOrganizationAdminAccount(ctx, conn, rs.Primary.ID)
+			if errs.IsAErrorMessageContains[*types.BadRequestException](err, "organization is not in use") {
+				// if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "organization is not in use") {
 				continue
 			}
 
@@ -68,7 +68,7 @@ func testAccCheckOrganizationAdminAccountDestroy(ctx context.Context) resource.T
 				return err
 			}
 
-			if adminAccount == nil {
+			if tfresource.NotFound(err) {
 				continue
 			}
 
@@ -88,14 +88,10 @@ func testAccCheckOrganizationAdminAccountExists(ctx context.Context, resourceNam
 
 		conn := acctest.Provider.Meta().(*conns.AWSClient).GuardDutyClient(ctx)
 
-		adminAccount, err := tfguardduty.GetOrganizationAdminAccount(ctx, conn, rs.Primary.ID)
+		_, err := tfguardduty.GetOrganizationAdminAccount(ctx, conn, rs.Primary.ID)
 
 		if err != nil {
 			return err
-		}
-
-		if adminAccount == nil {
-			return fmt.Errorf("GuardDuty Organization Admin Account (%s) not found", rs.Primary.ID)
 		}
 
 		return nil

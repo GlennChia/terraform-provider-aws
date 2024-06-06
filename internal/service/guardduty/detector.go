@@ -11,12 +11,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
-	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
+	"github.com/hashicorp/terraform-provider-aws/internal/errs"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs/sdkdiag"
 	tftags "github.com/hashicorp/terraform-provider-aws/internal/tags"
 	"github.com/hashicorp/terraform-provider-aws/internal/tfresource"
@@ -206,7 +207,7 @@ func resourceDetectorRead(ctx context.Context, d *schema.ResourceData, meta inte
 	} else {
 		d.Set("datasources", nil)
 	}
-	d.Set("enable", aws.ToString(gdo.Status) == awstypes.DetectorStatusEnabled)
+	d.Set("enable", types.DetectorStatus(gdo.Status) == types.DetectorStatusEnabled)
 	d.Set("finding_publishing_frequency", gdo.FindingPublishingFrequency)
 
 	setTagsOut(ctx, gdo.Tags)
@@ -222,7 +223,7 @@ func resourceDetectorUpdate(ctx context.Context, d *schema.ResourceData, meta in
 		input := &guardduty.UpdateDetectorInput{
 			DetectorId:                 aws.String(d.Id()),
 			Enable:                     aws.Bool(d.Get("enable").(bool)),
-			FindingPublishingFrequency: aws.String(d.Get("finding_publishing_frequency").(string)),
+			FindingPublishingFrequency: types.FindingPublishingFrequency(d.Get("finding_publishing_frequency").(string)),
 		}
 
 		if d.HasChange("datasources") {
@@ -248,9 +249,10 @@ func resourceDetectorDelete(ctx context.Context, d *schema.ResourceData, meta in
 		return conn.DeleteDetector(ctx, &guardduty.DeleteDetectorInput{
 			DetectorId: aws.String(d.Id()),
 		})
-	}, awstypes.ErrCodeBadRequestException, "cannot delete detector while it has invited or associated members")
+	}, errCodeBadRequestException, "cannot delete detector while it has invited or associated members")
 
-	if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
+	if errs.IsAErrorMessageContains[*types.BadRequestException](err, "The request is rejected because the input detectorId is not owned by the current account.") {
+		// if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
 		return diags
 	}
 
@@ -428,10 +430,8 @@ func flattenKubernetesAuditLogsConfiguration(apiObject *awstypes.KubernetesAudit
 		return nil
 	}
 
-	tfMap := map[string]interface{}{}
-
-	if v := apiObject.Status; v != nil {
-		tfMap["enable"] = aws.ToString(v) == awstypes.DataSourceStatusEnabled
+	tfMap := map[string]interface{}{
+		"enable": types.DataSourceStatus(apiObject.Status) == types.DataSourceStatusEnabled,
 	}
 
 	return tfMap
@@ -470,10 +470,8 @@ func flattenEbsVolumesResult(apiObject *awstypes.EbsVolumesResult) map[string]in
 		return nil
 	}
 
-	tfMap := map[string]interface{}{}
-
-	if v := apiObject.Status; v != nil {
-		tfMap["enable"] = aws.ToString(v) == awstypes.DataSourceStatusEnabled
+	tfMap := map[string]interface{}{
+		"enable": types.DataSourceStatus(apiObject.Status) == types.DataSourceStatusEnabled,
 	}
 
 	return tfMap
@@ -484,10 +482,8 @@ func flattenS3LogsConfigurationResult(apiObject *awstypes.S3LogsConfigurationRes
 		return nil
 	}
 
-	tfMap := map[string]interface{}{}
-
-	if v := apiObject.Status; v != nil {
-		tfMap["enable"] = aws.ToString(v) == awstypes.DataSourceStatusEnabled
+	tfMap := map[string]interface{}{
+		"enable": types.DataSourceStatus(apiObject.Status) == types.DataSourceStatusEnabled,
 	}
 
 	return tfMap
@@ -500,7 +496,8 @@ func FindDetectorByID(ctx context.Context, conn *guardduty.Client, id string) (*
 
 	output, err := conn.GetDetector(ctx, input)
 
-	if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
+	if errs.IsAErrorMessageContains[*types.BadRequestException](err, "The request is rejected because the input detectorId is not owned by the current account.") {
+		// if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
 		return nil, &retry.NotFoundError{
 			LastError:   err,
 			LastRequest: input,

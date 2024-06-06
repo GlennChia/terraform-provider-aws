@@ -13,14 +13,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
-	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
 	"github.com/hashicorp/terraform-provider-aws/internal/enum"
+	"github.com/hashicorp/terraform-provider-aws/internal/errs"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs/sdkdiag"
 	tftags "github.com/hashicorp/terraform-provider-aws/internal/tags"
 	"github.com/hashicorp/terraform-provider-aws/internal/verify"
@@ -55,10 +55,10 @@ func ResourceIPSet() *schema.Resource {
 				Required: true,
 			},
 			names.AttrFormat: {
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: enum.Validate[awstypes.IpSetFormat](),
+				Type:             schema.TypeString,
+				Required:         true,
+				ForceNew:         true,
+				ValidateDiagFunc: enum.Validate[awstypes.IpSetFormat](),
 			},
 			"location": {
 				Type:     schema.TypeString,
@@ -84,7 +84,7 @@ func resourceIPSetCreate(ctx context.Context, d *schema.ResourceData, meta inter
 	input := &guardduty.CreateIPSetInput{
 		DetectorId: aws.String(detectorID),
 		Name:       aws.String(d.Get(names.AttrName).(string)),
-		Format:     aws.String(d.Get(names.AttrFormat).(string)),
+		Format:     types.IpSetFormat(d.Get(names.AttrFormat).(string)),
 		Location:   aws.String(d.Get("location").(string)),
 		Activate:   aws.Bool(d.Get("activate").(bool)),
 		Tags:       getTagsIn(ctx),
@@ -96,8 +96,8 @@ func resourceIPSetCreate(ctx context.Context, d *schema.ResourceData, meta inter
 	}
 
 	stateConf := &retry.StateChangeConf{
-		Pending:    []string{awstypes.IpSetStatusActivating, awstypes.IpSetStatusDeactivating},
-		Target:     []string{awstypes.IpSetStatusActive, awstypes.IpSetStatusInactive},
+		Pending:    []string{string(awstypes.IpSetStatusActivating), string(awstypes.IpSetStatusDeactivating)},
+		Target:     []string{string(awstypes.IpSetStatusActive), string(awstypes.IpSetStatusInactive)},
 		Refresh:    ipsetRefreshStatusFunc(ctx, conn, *resp.IpSetId, detectorID),
 		Timeout:    5 * time.Minute,
 		MinTimeout: 3 * time.Second,
@@ -128,7 +128,8 @@ func resourceIPSetRead(ctx context.Context, d *schema.ResourceData, meta interfa
 
 	resp, err := conn.GetIPSet(ctx, input)
 	if err != nil {
-		if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
+		if errs.IsAErrorMessageContains[*types.BadRequestException](err, "The request is rejected because the input detectorId is not owned by the current account.") {
+			// if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
 			log.Printf("[WARN] GuardDuty IPSet (%s) not found, removing from state", ipSetId)
 			d.SetId("")
 			return diags
@@ -149,7 +150,7 @@ func resourceIPSetRead(ctx context.Context, d *schema.ResourceData, meta interfa
 	d.Set(names.AttrFormat, resp.Format)
 	d.Set("location", resp.Location)
 	d.Set(names.AttrName, resp.Name)
-	d.Set("activate", aws.ToString(resp.Status) == awstypes.IpSetStatusActive)
+	d.Set("activate", resp.Status == awstypes.IpSetStatusActive)
 
 	setTagsOut(ctx, resp.Tags)
 
@@ -210,13 +211,13 @@ func resourceIPSetDelete(ctx context.Context, d *schema.ResourceData, meta inter
 
 	stateConf := &retry.StateChangeConf{
 		Pending: []string{
-			awstypes.IpSetStatusActive,
-			awstypes.IpSetStatusActivating,
-			awstypes.IpSetStatusInactive,
-			awstypes.IpSetStatusDeactivating,
-			awstypes.IpSetStatusDeletePending,
+			string(awstypes.IpSetStatusActive),
+			string(awstypes.IpSetStatusActivating),
+			string(awstypes.IpSetStatusInactive),
+			string(awstypes.IpSetStatusDeactivating),
+			string(awstypes.IpSetStatusDeletePending),
 		},
-		Target:     []string{awstypes.IpSetStatusDeleted},
+		Target:     []string{string(awstypes.IpSetStatusDeleted)},
 		Refresh:    ipsetRefreshStatusFunc(ctx, conn, ipSetId, detectorId),
 		Timeout:    5 * time.Minute,
 		MinTimeout: 3 * time.Second,
@@ -240,7 +241,7 @@ func ipsetRefreshStatusFunc(ctx context.Context, conn *guardduty.Client, ipSetID
 		if err != nil {
 			return nil, "failed", err
 		}
-		return resp, *resp.Status, nil
+		return resp, string(resp.Status), nil
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
-	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -44,19 +43,18 @@ func sweepDetectors(region string) error {
 
 	err = conn.ListDetectorsPagesWithContext(ctx, input, func(page *guardduty.ListDetectorsOutput, lastPage bool) bool {
 		for _, detectorID := range page.DetectorIds {
-			id := aws.ToString(detectorID)
 			input := &guardduty.DeleteDetectorInput{
-				DetectorId: detectorID,
+				DetectorId: aws.String(detectorID),
 			}
 
-			log.Printf("[INFO] Deleting GuardDuty Detector: %s", id)
+			log.Printf("[INFO] Deleting GuardDuty Detector: %s", detectorID)
 			_, err := conn.DeleteDetector(ctx, input)
 			if tfawserr.ErrCodeContains(err, "AccessDenied") {
-				log.Printf("[WARN] Skipping GuardDuty Detector (%s): %s", id, err)
+				log.Printf("[WARN] Skipping GuardDuty Detector (%s): %s", detectorID, err)
 				continue
 			}
 			if err != nil {
-				sweeperErr := fmt.Errorf("error deleting GuardDuty Detector (%s): %w", id, err)
+				sweeperErr := fmt.Errorf("error deleting GuardDuty Detector (%s): %w", detectorID, err)
 				log.Printf("[ERROR] %s", sweeperErr)
 				sweeperErrs = multierror.Append(sweeperErrs, sweeperErr)
 			}
@@ -93,14 +91,14 @@ func sweepPublishingDestinations(region string) error {
 	err = conn.ListDetectorsPagesWithContext(ctx, detect_input, func(page *guardduty.ListDetectorsOutput, lastPage bool) bool {
 		for _, detectorID := range page.DetectorIds {
 			list_input := &guardduty.ListPublishingDestinationsInput{
-				DetectorId: detectorID,
+				DetectorId: aws.String(detectorID),
 			}
 
 			err = conn.ListPublishingDestinationsPagesWithContext(ctx, list_input, func(page *guardduty.ListPublishingDestinationsOutput, lastPage bool) bool {
 				for _, destination_element := range page.Destinations {
 					input := &guardduty.DeletePublishingDestinationInput{
 						DestinationId: destination_element.DestinationId,
-						DetectorId:    detectorID,
+						DetectorId:    aws.String(detectorID),
 					}
 
 					log.Printf("[INFO] Deleting GuardDuty Publishing Destination: %s", *destination_element.DestinationId)

@@ -13,14 +13,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	"github.com/aws/aws-sdk-go-v2/service/guardduty/types"
 	awstypes "github.com/aws/aws-sdk-go-v2/service/guardduty/types"
-	"github.com/hashicorp/aws-sdk-go-base/v2/tfawserr"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/hashicorp/terraform-provider-aws/internal/conns"
 	"github.com/hashicorp/terraform-provider-aws/internal/enum"
+	"github.com/hashicorp/terraform-provider-aws/internal/errs"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs/sdkdiag"
 	tftags "github.com/hashicorp/terraform-provider-aws/internal/tags"
 	"github.com/hashicorp/terraform-provider-aws/internal/verify"
@@ -55,10 +55,10 @@ func ResourceThreatIntelSet() *schema.Resource {
 				Required: true,
 			},
 			names.AttrFormat: {
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: enum.Validate[awstypes.ThreatIntelSetFormat](),
+				Type:             schema.TypeString,
+				Required:         true,
+				ForceNew:         true,
+				ValidateDiagFunc: enum.Validate[awstypes.ThreatIntelSetFormat](),
 			},
 			"location": {
 				Type:     schema.TypeString,
@@ -85,7 +85,7 @@ func resourceThreatIntelSetCreate(ctx context.Context, d *schema.ResourceData, m
 	input := &guardduty.CreateThreatIntelSetInput{
 		DetectorId: aws.String(detectorID),
 		Name:       aws.String(name),
-		Format:     aws.String(d.Get(names.AttrFormat).(string)),
+		Format:     types.ThreatIntelSetFormat(d.Get(names.AttrFormat).(string)),
 		Location:   aws.String(d.Get("location").(string)),
 		Activate:   aws.Bool(d.Get("activate").(bool)),
 		Tags:       getTagsIn(ctx),
@@ -97,8 +97,8 @@ func resourceThreatIntelSetCreate(ctx context.Context, d *schema.ResourceData, m
 	}
 
 	stateConf := &retry.StateChangeConf{
-		Pending:    []string{awstypes.ThreatIntelSetStatusActivating, awstypes.ThreatIntelSetStatusDeactivating},
-		Target:     []string{awstypes.ThreatIntelSetStatusActive, awstypes.ThreatIntelSetStatusInactive},
+		Pending:    []string{string(awstypes.ThreatIntelSetStatusActivating), string(awstypes.ThreatIntelSetStatusDeactivating)},
+		Target:     []string{string(awstypes.ThreatIntelSetStatusActive), string(awstypes.ThreatIntelSetStatusInactive)},
 		Refresh:    threatintelsetRefreshStatusFunc(ctx, conn, *resp.ThreatIntelSetId, detectorID),
 		Timeout:    5 * time.Minute,
 		MinTimeout: 3 * time.Second,
@@ -128,7 +128,8 @@ func resourceThreatIntelSetRead(ctx context.Context, d *schema.ResourceData, met
 
 	resp, err := conn.GetThreatIntelSet(ctx, input)
 	if err != nil {
-		if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
+		if errs.IsAErrorMessageContains[*types.BadRequestException](err, "The request is rejected because the input detectorId is not owned by the current account.") {
+			// if tfawserr.ErrMessageContains(err, awstypes.ErrCodeBadRequestException, "The request is rejected because the input detectorId is not owned by the current account.") {
 			log.Printf("[WARN] GuardDuty ThreatIntelSet %q not found, removing from state", threatIntelSetId)
 			d.SetId("")
 			return diags
@@ -149,7 +150,7 @@ func resourceThreatIntelSetRead(ctx context.Context, d *schema.ResourceData, met
 	d.Set(names.AttrFormat, resp.Format)
 	d.Set("location", resp.Location)
 	d.Set(names.AttrName, resp.Name)
-	d.Set("activate", aws.ToString(resp.Status) == awstypes.ThreatIntelSetStatusActive)
+	d.Set("activate", types.ThreatIntelSetStatus(resp.Status) == awstypes.ThreatIntelSetStatusActive)
 
 	setTagsOut(ctx, resp.Tags)
 
@@ -209,13 +210,13 @@ func resourceThreatIntelSetDelete(ctx context.Context, d *schema.ResourceData, m
 
 	stateConf := &retry.StateChangeConf{
 		Pending: []string{
-			awstypes.ThreatIntelSetStatusActive,
-			awstypes.ThreatIntelSetStatusActivating,
-			awstypes.ThreatIntelSetStatusInactive,
-			awstypes.ThreatIntelSetStatusDeactivating,
-			awstypes.ThreatIntelSetStatusDeletePending,
+			string(awstypes.ThreatIntelSetStatusActive),
+			string(awstypes.ThreatIntelSetStatusActivating),
+			string(awstypes.ThreatIntelSetStatusInactive),
+			string(awstypes.ThreatIntelSetStatusDeactivating),
+			string(awstypes.ThreatIntelSetStatusDeletePending),
 		},
-		Target:     []string{awstypes.ThreatIntelSetStatusDeleted},
+		Target:     []string{string(awstypes.ThreatIntelSetStatusDeleted)},
 		Refresh:    threatintelsetRefreshStatusFunc(ctx, conn, threatIntelSetID, detectorId),
 		Timeout:    5 * time.Minute,
 		MinTimeout: 3 * time.Second,
@@ -239,7 +240,7 @@ func threatintelsetRefreshStatusFunc(ctx context.Context, conn *guardduty.Client
 		if err != nil {
 			return nil, "failed", err
 		}
-		return resp, *resp.Status, nil
+		return resp, string(resp.Status), nil
 	}
 }
 
