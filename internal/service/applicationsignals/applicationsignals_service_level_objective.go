@@ -54,6 +54,120 @@ func (r *resourceServiceLevelObjective) Metadata(_ context.Context, req resource
 
 func (r *resourceServiceLevelObjective) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
     resp.Schema = schema.Schema{
+        Attributes: map[string]schema.Attribute{
+            names.AttrARN: framework.ARNAttributeComputedOnly(),
+            names.AttrCreatedTime: schema.StringAttribute{
+                CustomType: timetypes.RFC3339Type{},
+                Computed:   true,
+                PlanModifiers: []planmodifier.String{
+                    stringplanmodifier.UseStateForUnknown(),
+                },
+            },
+            names.AttrDescription: schema.StringAttribute{
+                Optional: true,
+                Validators: []validator.String{
+                    stringvalidator.LengthBetween(1, 1024),
+                },
+            },
+            "evaluation_type": schema.StringAttribute{
+                Computed: true,
+            },
+            names.AttrLastUpdatedTime: schema.StringAttribute{
+                CustomType: timetypes.RFC3339Type{},
+                Computed:   true,
+                PlanModifiers: []planmodifier.String{
+                    stringplanmodifier.UseStateForUnknown(),
+                },
+            },
+            names.AttrName: schema.StringAttribute{
+                Required: true,
+                Validators: []validator.String{
+                    stringvalidator.RegexMatches(
+                        regexache.MustCompile(`^[0-9A-Za-z][-._0-9A-Za-z ]{0,126}[0-9A-Za-z]$`),
+                        "value must follow a specific pattern",
+                    ),
+                },
+            },
+            names.AttrTags:    tftags.TagsAttribute(),
+            names.AttrTagsAll: tftags.TagsAttributeComputedOnly(),
+        },
+        Blocks: map[string]schema.Block{
+            "goal": schema.ListNestedBlock{
+                CustomType: fwtypes.NewListNestedObjectTypeOf[goalModel](ctx),
+                Validators: []validator.List{
+                    listvalidator.SizeAtLeast(1),
+                    listvalidator.SizeAtMost(1),
+                },
+                NestedObject: schema.NestedBlockObject{
+                    Attributes: map[string]schema.Attribute{
+                        "attainment_goal": schema.Float64Attribute{
+                            Optional: true,
+                            Computed: true, // default value of 99 if not set
+                        },
+                        "warning_threshold": schema.Float64Attribute{
+                            Optional: true,
+                            Computed: true, // default value of 50.0 if not set
+                        },
+                    },
+                    Blocks: map[string]schema.Block{
+                        // If you omit this parameter, a rolling interval of 7 days is used.
+                        names.AttrInterval: schema.ListNestedBlock{
+                            CustomType: fwtypes.NewListNestedObjectTypeOf[intervalModel](ctx),
+                            Validators: []validator.List{
+                                listvalidator.SizeAtMost(1),
+                            },
+                            NestedObject: schema.NestedBlockObject{
+                                Blocks: map[string]schema.Block{
+                                    "calendar_interval": schema.ListNestedBlock{
+                                        CustomType: fwtypes.NewListNestedObjectTypeOf[calendarIntervalModel](ctx),
+                                        Validators: []validator.List{
+                                            listvalidator.SizeAtMost(1),
+                                        },
+                                        NestedObject: schema.NestedBlockObject{
+                                            Attributes: map[string]schema.Attribute{
+                                                "duration": schema.Int64Attribute{
+                                                    Required: true,
+                                                    Validators: []validator.Int64{
+                                                        int64validator.AtLeast(1),
+                                                    },
+                                                },
+                                                "duration_unit": schema.StringAttribute{
+                                                    CustomType: fwtypes.StringEnumType[awstypes.DurationUnit](),
+                                                    Required:   true,
+                                                },
+                                                names.AttrStartTime: schema.StringAttribute{
+                                                    Required: true,
+                                                },
+                                            },
+                                        },
+                                    },
+                                    "rolling_interval": schema.ListNestedBlock{
+                                        CustomType: fwtypes.NewListNestedObjectTypeOf[rollingIntervalModel](ctx),
+                                        Validators: []validator.List{
+                                            listvalidator.SizeAtMost(1),
+                                        },
+                                        NestedObject: schema.NestedBlockObject{
+                                            Attributes: map[string]schema.Attribute{
+                                                "duration": schema.Int64Attribute{
+                                                    Required: true,
+                                                    Validators: []validator.Int64{
+                                                        int64validator.AtLeast(1),
+                                                    },
+                                                },
+                                                "duration_unit": schema.StringAttribute{
+                                                    CustomType: fwtypes.StringEnumType[awstypes.DurationUnit](),
+                                                    Required:   true,
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     }
 }
 
